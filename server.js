@@ -19,6 +19,10 @@ app.use(cors()); // Active CORS pour toutes les requêtes
 app.use('/api/auth', authRoutes);
 app.use('/api/assets', assetRoutes); // Utilisez les routes d'actifs
 
+app.use((req, res) => {
+  res.send("API is running..." );
+});
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
