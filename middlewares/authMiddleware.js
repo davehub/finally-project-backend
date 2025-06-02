@@ -1,42 +1,47 @@
-// backend/middleware/authMiddleware.js
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const dotenv = require('dotenv');
+const User = require('../models/User'); // Pour vérifier l'existence de l'utilisateur
 
-dotenv.config();
+require('dotenv').config();
 
-const protect = async (req, res, next) => {
-  let token;
+/**
+ * Middleware pour vérifier la validité du token JWT dans l'en-tête Authorization.
+ * Attache les informations de l'utilisateur (id, email, role) à `req.user`.
+ */
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Format: Bearer TOKEN
 
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    try {
-      // Obtenir le token du header
-      token = req.headers.authorization.split(' ')[1];
+  if (token == null) {
+    return res.status(401).json({ message: 'Accès refusé. Aucun token fourni.' });
+  }
 
-      // Vérifier le token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-      // Récupérer l'utilisateur sans le mot de passe
-      req.user = await User.findById(decoded.id).select('-password');
-      next();
-    } catch (error) {
-      console.error(error);
-      res.status(401).json({ message: 'Non autorisé, token invalide' });
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) {
+      console.error('Erreur de vérification du token:', err.message);
+      return res.status(403).json({ message: 'Token invalide ou expiré.' });
     }
-  }
-
-  if (!token) {
-    res.status(401).json({ message: 'Non autorisé, pas de token' });
-  }
+    req.user = user; // Attacher les informations de l'utilisateur (id, email, role) décodées du token
+    next();
+  });
 };
 
-const authorizeRoles = (...roles) => {
+/**
+ * Middleware pour vérifier si l'utilisateur authentifié possède l'un des rôles autorisés.
+ * @param {Array<string>} allowedRoles - Tableau de chaînes de caractères des rôles autorisés (ex: ['admin', 'user']).
+ */
+const authorizeRoles = (allowedRoles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ message: `L'utilisateur avec le rôle ${req.user.role} n'est pas autorisé à accéder à cette route.` });
+    if (!req.user || !req.user.role) {
+      return res.status(403).json({ message: 'Accès refusé. Rôle utilisateur non défini ou utilisateur non authentifié.' });
+    }
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ message: 'Accès refusé. Permissions insuffisantes pour cette action.' });
     }
     next();
   };
 };
 
-module.exports = { protect, authorizeRoles };
+module.exports = {
+  authenticateToken,
+  authorizeRoles,
+};
