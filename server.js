@@ -1,51 +1,60 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const connectDB = require('./config/db'); // Importer la fonction de connexion à la DB
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import morgan from 'morgan';
 
-// Importer les modules de routes
-const authRoutes = require('./routes/auth');
-const dataRoutes = require('./routes/data');
+// Routes
+import authRoutes from './routes/auth.js';
+import equipmentRoutes from './routes/equipment.js';
+import userRoutes from './routes/users.js';
+import maintenanceRoutes from './routes/maintenance.js';
+import notificationRoutes from './routes/notifications.js';
 
-dotenv.config(); // Charger les variables d'environnement depuis .env
+// Middleware
+import { authMiddleware } from './middleware/auth.js';
+import { errorHandler } from './middleware/errorHandler.js';
+
+// Load environment variables
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Connexion à la base de données MongoDB
-connectDB();
+// Middleware
+app.use(express.json());
+app.use(cors());
+app.use(morgan('dev'));
 
-// Configuration CORS
-const corsOptions = {
-  origin: 'http://localhost:3000', // Remplacez par l'URL de votre frontend React en développement
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  credentials: true,
-  optionsSuccessStatus: 204
-};
-app.use(cors(corsOptions));
+// Database connection
+mongoose
+  .connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/it-asset-management')
+  .then(() => {
+    console.log('Connected to MongoDB');
+  })
+  .catch((err) => {
+    console.error('MongoDB connection error:', err);
+    process.exit(1);
+  });
 
-// Middleware pour parser le corps des requêtes en JSON
-app.use(bodyParser.json());
-
-// Routes d'authentification
+// Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/equipment', authMiddleware, equipmentRoutes);
+app.use('/api/users', authMiddleware, userRoutes);
+app.use('/api/maintenance', authMiddleware, maintenanceRoutes);
+app.use('/api/notifications', authMiddleware, notificationRoutes);
 
-// Routes de gestion des données (protégées par des middlewares)
-app.use('/api', dataRoutes);
-
-// Route de test simple
-app.get('/', (req, res) => {
-  res.send('🎉 Le serveur backend est en cours d\'exécution et prêt !');
+// Base route
+app.get('/api', (req, res) => {
+  res.json({ message: 'IT Asset Management API' });
 });
 
-// Gestionnaire d'erreurs global (à ajouter après toutes les routes)
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).send('Quelque chose s\'est mal passé !');
-});
+// Error handler middleware
+app.use(errorHandler);
 
-// Démarrer le serveur
+// Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Serveur backend démarré sur le port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
+
+export default app;

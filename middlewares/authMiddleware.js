@@ -1,47 +1,40 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User'); // Pour vérifier l'existence de l'utilisateur
+import jwt from 'jsonwebtoken';
 
-require('dotenv').config();
-
-/**
- * Middleware pour vérifier la validité du token JWT dans l'en-tête Authorization.
- * Attache les informations de l'utilisateur (id, email, role) à `req.user`.
- */
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Format: Bearer TOKEN
-
-  if (token == null) {
-    return res.status(401).json({ message: 'Accès refusé. Aucun token fourni.' });
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) {
-      console.error('Erreur de vérification du token:', err.message);
-      return res.status(403).json({ message: 'Token invalide ou expiré.' });
+export const authMiddleware = (req, res, next) => {
+  try {
+    // Get token from header
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Authorization token required' });
     }
-    req.user = user; // Attacher les informations de l'utilisateur (id, email, role) décodées du token
+    
+    const token = authHeader.split(' ')[1];
+    
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    
+    // Add user to request
+    req.user = decoded;
+    
     next();
-  });
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    res.status(401).json({ message: 'Invalid token' });
+  }
 };
 
-/**
- * Middleware pour vérifier si l'utilisateur authentifié possède l'un des rôles autorisés.
- * @param {Array<string>} allowedRoles - Tableau de chaînes de caractères des rôles autorisés (ex: ['admin', 'user']).
- */
-const authorizeRoles = (allowedRoles) => {
+// Role-based authorization middleware
+export const authorize = (...roles) => {
   return (req, res, next) => {
-    if (!req.user || !req.user.role) {
-      return res.status(403).json({ message: 'Accès refusé. Rôle utilisateur non défini ou utilisateur non authentifié.' });
+    if (!req.user) {
+      return res.status(401).json({ message: 'Not authenticated' });
     }
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ message: 'Accès refusé. Permissions insuffisantes pour cette action.' });
+    
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ message: 'Not authorized to access this resource' });
     }
+    
     next();
   };
-};
-
-module.exports = {
-  authenticateToken,
-  authorizeRoles,
 };
