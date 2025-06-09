@@ -1,60 +1,38 @@
-import express from 'express';
-import mongoose from 'mongoose';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import morgan from 'morgan';
+const express = require('express');
+const dotenv = require('dotenv');
+const cors = require('cors');
+const connectDB = require('./config/db');
 
-// Routes
-import authRoutes from './routes/auth.js';
-import equipmentRoutes from './routes/equipment.js';
-import userRoutes from './routes/users.js';
-import maintenanceRoutes from './routes/maintenance.js';
-import notificationRoutes from './routes/notifications.js';
+// Importation des routes
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes'); // <-- Assurez-vous que cette ligne n'apparaît qu'UNE SEULE FOIS
+const deviceRoutes = require('./routes/deviceRoutes');
+const maintenanceRoutes = require('./routes/maintenanceRoutes');
+const emergencyRoutes = require('./routes/emergencyRoutes');
 
-// Middleware
-import { authMiddleware } from './middleware/auth.js';
-import { errorHandler } from './middleware/errorHandler.js';
-
-// Load environment variables
 dotenv.config();
 
+connectDB();
+
 const app = express();
+
+app.use(express.json()); // Body parser
+app.use(cors({
+    origin: 'http://localhost:5000' // Autoriser le frontend à s'y connecter
+}));
+
+// Utilisation des routes API
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes); // <-- Assurez-vous que cette ligne n'apparaît qu'UNE SEULE FOIS dans app.use
+app.use('/api/devices', deviceRoutes);
+app.use('/api/maintenances', maintenanceRoutes);
+app.use('/api/emergencies', emergencyRoutes);
+
+// Route de base
+app.get('/', (req, res) => {
+    res.send('API de Gestion de Parc Informatique est en cours d\'exécution...');
+});
+
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(express.json());
-app.use(cors());
-app.use(morgan('dev'));
-
-// Database connection
-mongoose
-  .connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/it-asset-management')
-  .then(() => {
-    console.log('Connected to MongoDB');
-  })
-  .catch((err) => {
-    console.error('MongoDB connection error:', err);
-    process.exit(1);
-  });
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/equipment', authMiddleware, equipmentRoutes);
-app.use('/api/users', authMiddleware, userRoutes);
-app.use('/api/maintenance', authMiddleware, maintenanceRoutes);
-app.use('/api/notifications', authMiddleware, notificationRoutes);
-
-// Base route
-app.get('/api', (req, res) => {
-  res.json({ message: 'IT Asset Management API' });
-});
-
-// Error handler middleware
-app.use(errorHandler);
-
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
-export default app;
+app.listen(PORT, () => console.log(`Serveur backend démarré sur le port ${PORT}`));

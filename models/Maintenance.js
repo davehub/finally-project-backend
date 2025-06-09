@@ -1,63 +1,58 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
-const maintenanceSchema = new mongoose.Schema(
-  {
-    equipment: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Equipment',
-      required: true,
+const MaintenanceSchema = new mongoose.Schema({
+    device: { // Référence à l'équipement concerné
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Device',
+        required: true
     },
-    maintenanceType: {
-      type: String,
-      enum: ['routine', 'repair', 'upgrade', 'inspection', 'other'],
-      required: true,
+    scheduledDate: { // Date prévue pour la maintenance
+        type: Date,
+        required: true
     },
-    description: {
-      type: String,
-      required: true,
-      trim: true,
+    completionDate: { // Date de réalisation de la maintenance
+        type: Date
     },
-    scheduledDate: {
-      type: Date,
-      required: true,
+    type: { // Type de maintenance (préventive, corrective, évolutive)
+        type: String,
+        enum: ['préventive', 'corrective', 'évolutive'],
+        required: true
     },
-    completedDate: {
-      type: Date,
+    description: { // Description du problème ou de l'intervention
+        type: String,
+        required: true,
+        trim: true
     },
-    status: {
-      type: String,
-      enum: ['scheduled', 'in-progress', 'completed', 'cancelled'],
-      default: 'scheduled',
+    performedBy: { // Technicien ou utilisateur ayant effectué la maintenance
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
     },
-    priority: {
-      type: String,
-      enum: ['low', 'medium', 'high', 'critical'],
-      default: 'medium',
+    status: { // Statut de la maintenance (planifiée, en cours, terminée, annulée)
+        type: String,
+        enum: ['planifiée', 'en cours', 'terminée', 'annulée'],
+        default: 'planifiée'
     },
-    assignedTo: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+    cost: { // Coût de la maintenance
+        type: Number,
+        default: 0
     },
-    cost: {
-      type: Number,
-      min: 0,
+    notes: { // Notes additionnelles
+        type: String,
+        trim: true
     },
-    notes: {
-      type: String,
-      trim: true,
+    createdAt: {
+        type: Date,
+        default: Date.now
     },
-  },
-  {
-    timestamps: true,
-  }
-);
+    updatedAt: {
+        type: Date,
+        default: Date.now
+    }
+});
 
-// Create indexes for faster queries
-maintenanceSchema.index({ equipment: 1 });
-maintenanceSchema.index({ status: 1 });
-maintenanceSchema.index({ priority: 1 });
-maintenanceSchema.index({ scheduledDate: 1 });
+MaintenanceSchema.pre('save', function (next) {
+    this.updatedAt = Date.now();
+    next();
+});
 
-const Maintenance = mongoose.model('Maintenance', maintenanceSchema);
-
-export default Maintenance;
+module.exports = mongoose.model('Maintenance', MaintenanceSchema);
