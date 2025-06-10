@@ -1,38 +1,40 @@
+require('dotenv').config();
 const express = require('express');
-const dotenv = require('dotenv');
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const cors = require('cors');
-const connectDB = require('./config/db');
-
-// Importation des routes
-const authRoutes = require('./routes/authRoutes');
-const userRoutes = require('./routes/userRoutes'); // <-- Assurez-vous que cette ligne n'apparaît qu'UNE SEULE FOIS
-const deviceRoutes = require('./routes/deviceRoutes');
-const maintenanceRoutes = require('./routes/maintenanceRoutes');
-const emergencyRoutes = require('./routes/emergencyRoutes');
-
-dotenv.config();
-
-connectDB();
 
 const app = express();
 
-app.use(express.json()); // Body parser
-app.use(cors({
-    origin: 'http://localhost:5000' // Autoriser le frontend à s'y connecter
-}));
+// Middleware
+app.use(cors());
+app.use(express.json());
 
-// Utilisation des routes API
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes); // <-- Assurez-vous que cette ligne n'apparaît qu'UNE SEULE FOIS dans app.use
-app.use('/api/devices', deviceRoutes);
-app.use('/api/maintenances', maintenanceRoutes);
-app.use('/api/emergencies', emergencyRoutes);
+// Connexion à MongoDB
+mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://dave:MongoDb2k25@cluster0.cq4fu.mongodb.net/?', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+.then(() => console.log('Connecté à MongoDB'))
+.catch(err => console.error('Erreur MongoDB:', err));
 
-// Route de base
-app.get('/', (req, res) => {
-    res.send('API de Gestion de Parc Informatique est en cours d\'exécution...');
+// Modèles Mongoose
+const User = require('./models/User');
+const Device = require('./models/Device');
+const Maintenance = require('./models/Maintenance');
+
+// Routes
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/devices', require('./routes/deviceRoutes'));
+app.use('/api/maintenances', require('./routes/maintenanceRoutes'));
+
+// Middleware d'erreur
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Erreur serveur' });
 });
 
 const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => console.log(`Serveur backend démarré sur le port ${PORT}`));
+app.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`));
